@@ -1,0 +1,334 @@
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const PORT = 3000;
+
+app.use(cors());
+app.use(express.json());
+
+// Helpers for data generation
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function generateDateString(daysOffset, hoursOffset) {
+    const d = new Date();
+    d.setDate(d.getDate() + daysOffset);
+    d.setHours(d.getHours() + hoursOffset, 0, 0, 0);
+    return d.toISOString();
+}
+
+/**
+ * Generates realistic-looking odds for the Top 10 bookmakers.
+ * Calculates which bookmaker offers the "Best Odds" (highest decimal value)
+ * for the favored participant (to keep the mock simple).
+ */
+function generateTop10Odds(baseOddsDecimal, favoriteName) {
+    const bookmakersList = ['Bet365', 'SkyBet', 'William Hill', 'Ladbrokes', 'Betfred', 'Paddy Power', 'Coral', 'BetVictor', 'Unibet', '888sport'];
+    
+    let bookmakersData = [];
+    let bestDecimal = 0;
+    let bestBookie = null;
+
+    bookmakersList.forEach(bookie => {
+        // Vary the odds slightly around the base
+        const variation = (Math.random() * 0.4) - 0.2; // -0.2 to +0.2
+        const decimalOdds = Math.max(1.01, +(baseOddsDecimal + variation).toFixed(2));
+        
+        // Convert to American format for display
+        let americanOdds = '';
+        if (decimalOdds >= 2.0) {
+            americanOdds = '+' + Math.round((decimalOdds - 1) * 100);
+        } else {
+            americanOdds = '-' + Math.round(100 / (decimalOdds - 1));
+        }
+
+        const oddsString = `${favoriteName} ${americanOdds}`;
+
+        bookmakersData.push({
+            key: bookie.toLowerCase().replace(/\s+/g, ''),
+            title: bookie,
+            last_update: new Date().toISOString(),
+            markets: [
+                {
+                    key: 'h2h',
+                    outcomes: [
+                        { name: favoriteName, price: decimalOdds, displayStr: oddsString }
+                    ]
+                }
+            ],
+            link: `https://www.${bookie.toLowerCase().replace(/\s+/g, '')}.com`
+        });
+
+        // Track the absolute best odds
+        if (decimalOdds > bestDecimal) {
+            bestDecimal = decimalOdds;
+            bestBookie = bookie;
+        }
+    });
+
+    // Sort bookmakers by best decimal odds descending so top 5 is easy to slice
+    bookmakersData.sort((a, b) => b.markets[0].outcomes[0].price - a.markets[0].outcomes[0].price);
+
+    const bestAmerican = bestDecimal >= 2.0 ? '+' + Math.round((bestDecimal - 1) * 100) : '-' + Math.round(100 / (bestDecimal - 1));
+
+    // ADVANCED ANALYTICS Engine
+    const impliedProb = 1 / bestDecimal;
+    
+    // Simulate a quantitative edge ranging from -2% to +10%
+    const edgeSimulation = (Math.random() * 0.12) - 0.02;
+    const modelProb = Math.min(0.99, Math.max(0.01, impliedProb + edgeSimulation));
+    
+    const edgePct = (modelProb - impliedProb) * 100;
+    const ev = (modelProb * bestDecimal) - 1; // Expected Value per unit
+    
+    // Kelly Criterion Stake Sizing
+    let recommendedStake = 0;
+    if (ev > 0) {
+        const b = bestDecimal - 1;
+        const p = modelProb;
+        const q = 1 - p;
+        const kellyFraction = (b * p - q) / b;
+        
+        // Quarter Kelly strategy capped at 5% of bankroll
+        recommendedStake = Math.min(5.0, Math.max(0.1, kellyFraction * 0.25 * 100));
+    }
+
+    const analytics = {
+        implied_probability: (impliedProb * 100).toFixed(1),
+        model_probability: (modelProb * 100).toFixed(1),
+        edge_percent: edgePct.toFixed(1),
+        expected_value: (ev * 100).toFixed(1),
+        recommended_stake: recommendedStake > 0 ? `${recommendedStake.toFixed(1)}%` : 'No Bet'
+    };
+
+    return {
+        bookmakers: bookmakersData,
+        best_odds: {
+            provider: bestBookie,
+            decimal: bestDecimal,
+            displayStr: `${favoriteName} ${bestAmerican}`,
+            link: `https://www.${bestBookie.toLowerCase().replace(/\s+/g, '')}.com`
+        },
+        analytics: analytics
+    };
+}
+
+function generateDailyPicks(allEvents) {
+    // Filter to only events with significant positive EV (> 2% return)
+    const highEvEvents = allEvents.filter(e => e.analytics && parseFloat(e.analytics.expected_value) > 2.0);
+    
+    highEvEvents.sort((a, b) => parseFloat(b.analytics.expected_value) - parseFloat(a.analytics.expected_value));
+
+    const parlays = [];
+    
+    if (highEvEvents.length >= 2) {
+        const pick1 = highEvEvents[0];
+        const pick2 = highEvEvents[1];
+        const combinedOdds = (pick1.best_odds.decimal * pick2.best_odds.decimal).toFixed(2);
+        
+        parlays.push({
+            type: 'High-Conviction Double',
+            legs: [pick1, pick2],
+            total_odds: combinedOdds,
+            description: `A data-backed EV double utilizing our top simulated mathematical edges.`
+        });
+    }
+
+    if (highEvEvents.length >= 3) {
+        const picks = [highEvEvents[0], highEvEvents[1], highEvEvents[2]];
+        const combinedOdds = picks.reduce((acc, curr) => acc * curr.best_odds.decimal, 1).toFixed(2);
+        
+        parlays.push({
+            type: 'Cross-Sport Accumulator',
+            legs: picks,
+            total_odds: combinedOdds,
+            description: `A 3-leg parlay hunting the biggest market inefficiencies of the day across our live feeds.`
+        });
+    }
+
+    return parlays;
+}
+
+
+async function fetchTheSportsDBLeague(leagueId) {
+    try {
+        const response = await fetch(`https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${leagueId}`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.events || [];
+    } catch (error) {
+        console.error(`Failed to fetch league ${leagueId}:`, error);
+        return [];
+    }
+}
+
+// Function to map TheSportsDB live payload into our unified frontend format
+function mapLiveEvents(allEvents) {
+    const todayEvents = [];
+    const forecastEvents = [];
+    
+    const now = new Date();
+    const tomorrow = new Date();
+    tomorrow.setHours(now.getHours() + 24);
+
+    allEvents.forEach(evt => {
+        // Skip invalid rows
+        if (!evt || !evt.strTimestamp) return;
+
+        const eventTime = new Date(evt.strTimestamp);
+        const isToday = eventTime <= tomorrow; // Treat anything in next 24 hours as "Today" for dashboard purposes
+
+        // Calculate a random baseline odds factor based on home vs away to keep it somewhat realistic
+        // (Just a visual simulation since free API lacks real odds)
+        const favoriteName = evt.strHomeTeam.substring(0, 3).toUpperCase();
+        const randomBaseOdds = (Math.random() * (2.80 - 1.20) + 1.20); 
+
+        // Map broadcasting info - often not provided reliably in free tiers, so we inject a placeholder
+        const defaultBroadcasters = [
+            { name: 'StreamTV', region: 'Global', hasFreeTrial: true, watchLink: '#' }
+        ];
+
+        const mappedEvent = {
+            id: evt.idEvent,
+            sport_key: evt.strSport,
+            sport_title: evt.strLeague || evt.strSport,
+            home_team: evt.strHomeTeam,
+            away_team: evt.strAwayTeam,
+            commence_time: evt.strTimestamp,
+            broadcasters: defaultBroadcasters,
+            broadcaster: 'Local Providers',
+            ...generateTop10Odds(randomBaseOdds, favoriteName)
+        };
+
+        if (isToday) {
+            todayEvents.push(mappedEvent);
+        } else {
+            forecastEvents.push(mappedEvent);
+        }
+    });
+
+    // Sort chronologically
+    todayEvents.sort((a,b) => new Date(a.commence_time) - new Date(b.commence_time));
+    forecastEvents.sort((a,b) => new Date(a.commence_time) - new Date(b.commence_time));
+
+    const parlays = generateDailyPicks(todayEvents.concat(forecastEvents));
+
+    return { today: todayEvents, forecast: forecastEvents, parlays: parlays };
+}
+
+// Async Data Generator pulling from TheSportsDB
+async function getLiveOddsData() {
+    // 4328 = English Premier League, 4387 = NBA, 4424 = MLB, 4391 = NFL (If in season)
+    const leagueIdsToFetch = [4328, 4387, 4424]; 
+    
+    console.log("Fetching live schedules from TheSportsDB...");
+    
+    // Fetch all leagues in parallel
+    const allResults = await Promise.all(leagueIdsToFetch.map(id => fetchTheSportsDBLeague(id)));
+    
+    // Flatten array of arrays
+    const combinedEvents = allResults.flat();
+    
+    console.log(`Successfully retrieved ${combinedEvents.length} upcoming REAL live events.`);
+
+    // If API fails or is empty, provide a fallback mock
+    if (combinedEvents.length === 0) {
+        console.log("No real events found (maybe API limits), returning fallback mock.");
+        return getFallbackMockData(); 
+    }
+
+    return mapLiveEvents(combinedEvents);
+}
+
+// Minimal fallback if the free API blocks us or is out of season
+function getFallbackMockData() {
+    const fallback = {
+        id: 'fallback-01',
+        sport_key: 'soccer',
+        sport_title: 'API Rate Limited',
+        home_team: 'Fallback Team A',
+        away_team: 'Fallback Team B',
+        commence_time: generateDateString(0, 2),
+        broadcasters: [{ name: 'N/A', region: 'N/A', hasFreeTrial: false, watchLink: '#' }],
+        broadcaster: 'N/A',
+        ...generateTop10Odds(1.90, 'TEA')
+    };
+    return { today: [fallback], forecast: [], parlays: [] };
+}
+
+// API Route
+app.get('/api/odds', async (req, res) => {
+    // Simulate slight network delay of a live API (500ms)
+    // plus the actual await time of TheSportsDB request
+    const delay = getRandomInt(400, 800);
+    
+    setTimeout(async () => {
+        try {
+            const data = await getLiveOddsData();
+            res.json(data);
+        } catch (error) {
+            console.error("Route error:", error);
+            res.status(500).json({ error: "Inner Server Fetch Error" });
+        }
+    }, delay);
+});
+
+// Custom Bet Verifier Endpoint
+app.post('/api/verify-bet', (req, res) => {
+    const { decimalOdds, userProb } = req.body;
+
+    if (!decimalOdds || !userProb) {
+        return res.status(400).json({ error: "Missing decimalOdds or userProb" });
+    }
+
+    const oddsFloat = parseFloat(decimalOdds);
+    const probFloat = parseFloat(userProb) / 100; // Expected format like 55 for 55%
+
+    if (isNaN(oddsFloat) || isNaN(probFloat) || probFloat <= 0 || probFloat >= 1) {
+        return res.status(400).json({ error: "Invalid numbers provided." });
+    }
+
+    const impliedProb = 1 / oddsFloat;
+    const edgePct = (probFloat - impliedProb) * 100;
+    const ev = (probFloat * oddsFloat) - 1; 
+    
+    let recommendedStake = 0;
+    let betVerdict = "AVOID";
+    let message = "This bet has a negative expected value and will lose money long-term.";
+
+    if (ev > 0) {
+        const b = oddsFloat - 1;
+        const p = probFloat;
+        const q = 1 - p;
+        const kellyFraction = (b * p - q) / b;
+        
+        // Quarter Kelly strategy capped at 5% of bankroll
+        recommendedStake = Math.min(5.0, Math.max(0.1, kellyFraction * 0.25 * 100));
+        
+        if (recommendedStake > 2.0) {
+            betVerdict = "HIGH CONVICTION";
+            message = "Strong mathematical edge detected. Excellent value bet.";
+        } else {
+            betVerdict = "SAFE TO PROCEED";
+            message = "Positive expected value detected. Proceed with measured stake.";
+        }
+    }
+
+    res.json({
+        implied_probability: (impliedProb * 100).toFixed(1) + "%",
+        model_probability: (probFloat * 100).toFixed(1) + "%",
+        edge_percent: edgePct.toFixed(1) + "%",
+        expected_value: (ev * 100).toFixed(1) + "%",
+        recommended_stake: recommendedStake > 0 ? `${recommendedStake.toFixed(1)}% of Bankroll` : '0% (NO BET)',
+        verdict: betVerdict,
+        message: message,
+        isSafe: ev > 0
+    });
+});
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`✅ Live Sports API Mock Server active on http://localhost:${PORT}`);
+    console.log(`📡 Fetch odds at: http://localhost:${PORT}/api/odds`);
+});

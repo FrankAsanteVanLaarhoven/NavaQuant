@@ -1,0 +1,22 @@
+{
+  "name": "match-day-sdk",
+  "version": "1.0.0",
+  "description": "SDK to launch the Match Day Live TV Viewer Dashboard",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "app": "electron ."
+  },
+  "keywords": [
+    "football",
+    "dashboard",
+    "tv-viewer",
+    "launcher"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
