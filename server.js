@@ -253,7 +253,8 @@ async function getLiveOddsData() {
     // 4480 = Champions League, 4481 = Europa League
     // 4328 = EPL, 4335 = La Liga, 4332 = Serie A
     // 4387 = NBA, 4380 = NHL, 4424 = MLB, 4391 = NFL
-    const leagueIdsToFetch = [4480, 4481, 4328, 4335, 4332, 4387, 4380, 4424, 4391];  
+    // Added 4461 (FA Cup), 4462 (EFL Cup), 4329 (Championship), 4331 (Bundesliga), 4334 (Ligue 1)
+    const leagueIdsToFetch = [4480, 4481, 4328, 4329, 4461, 4462, 4331, 4334, 4335, 4332, 4387, 4380, 4424, 4391];
     
     console.log("Fetching live schedules from TheSportsDB...");
     

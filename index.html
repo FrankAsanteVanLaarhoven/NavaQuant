@@ -22,6 +22,16 @@
             <p>Your portal to official, legal, and high-quality football broadcasts.</p>
         </header>
 
+        <nav class="sports-nav">
+            <button class="nav-btn active" onclick="handleNavClick('everything', this)">🌟 All Events</button>
+            <button class="nav-btn" onclick="handleNavClick('soccer', this)">⚽ Soccer</button>
+            <button class="nav-btn" onclick="handleNavClick('basketball', this)">🏀 Basketball</button>
+            <button class="nav-btn" onclick="handleNavClick('football', this)">🏈 Football</button>
+            <button class="nav-btn" onclick="handleNavClick('hockey', this)">🏒 Hockey</button>
+            <button class="nav-btn" onclick="handleNavClick('baseball', this)">⚾ Baseball</button>
+            <button class="nav-btn" onclick="handleNavClick('cup', this)">🏆 Cup Matches</button>
+        </nav>
+
         <!-- UI cleared of all mock simulator elements for absolute purity -->        <main id="dashboard-content">
 
             <!-- CUSTOM BET VERIFIER -->

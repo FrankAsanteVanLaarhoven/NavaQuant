@@ -704,3 +704,11 @@ function processIntent(text) {
         document.getElementById('intent-input').classList.remove('active');
     }, 2000);
 }
+
+window.handleNavClick = function(intent, btnElement) {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnElement) {
+        btnElement.classList.add('active');
+    }
+    processIntent(intent);
+};
