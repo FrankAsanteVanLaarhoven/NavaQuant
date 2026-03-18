@@ -1,29 +1,24 @@
-const CACHE_NAME = 'match-day-v2';
-const ASSETS = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/app.js',
-    '/manifest.json'
-];
-
+// SOTA ANNIHILATION WORM: This Service Worker replaces the old one and unregisters itself immediately.
 self.addEventListener('install', (e) => {
+    self.skipWaiting(); 
+});
+
+self.addEventListener('activate', (e) => {
     e.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(ASSETS))
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cache => {
+                    return caches.delete(cache); // Nuke EVERY cache
+                })
+            );
+        }).then(() => {
+            self.registration.unregister(); // Kill the service worker permanently
+            return self.clients.claim();
+        })
     );
 });
 
 self.addEventListener('fetch', (e) => {
-    // Only intercept local UI requests, let API requests go to network
-    if (e.request.url.includes('/api/')) {
-        return;
-    }
-
-    e.respondWith(
-        caches.match(e.request)
-            .then(response => {
-                return response || fetch(e.request);
-            })
-    );
+    // Completely bypass cache.
+    e.respondWith(fetch(e.request));
 });

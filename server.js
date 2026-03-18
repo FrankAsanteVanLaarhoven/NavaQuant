@@ -6,6 +6,22 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+// --- FRONTEND SERVER (Port 8080) ---
+// This serves the Match Day UI and forcefully clears old browser caches
+const frontendApp = express();
+frontendApp.use((req, res, next) => {
+    // VIOLENTLY NUKE ANY BROWSER CACHES/SERVICE WORKERS FROM PREVIOUS PROJECTS
+    res.setHeader('Clear-Site-Data', '"cache", "storage", "executionContexts"');
+    next();
+});
+frontendApp.use(express.static(__dirname));
+
+const FRONTEND_PORT = 8080;
+frontendApp.listen(FRONTEND_PORT, () => {
+    console.log(`✅ Frontend Dashboard actively wiping old cache and running on http://localhost:${FRONTEND_PORT}`);
+});
+
+
 // Helpers for data generation
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -147,6 +163,18 @@ function generateDailyPicks(allEvents) {
         });
     }
 
+    if (highEvEvents.length >= 4) {
+        const picks = [highEvEvents[0], highEvEvents[1], highEvEvents[2], highEvEvents[3]];
+        const combinedOdds = picks.reduce((acc, curr) => acc * curr.best_odds.decimal, 1).toFixed(2);
+        
+        parlays.push({
+            type: 'Mega 4-Leg Parlay',
+            legs: picks,
+            total_odds: combinedOdds,
+            description: `A 4-leg mega slip combining the top quantitative picks for maximum return profile.`
+        });
+    }
+
     return parlays;
 }
 
@@ -169,15 +197,18 @@ function mapLiveEvents(allEvents) {
     const forecastEvents = [];
     
     const now = new Date();
-    const tomorrow = new Date();
-    tomorrow.setHours(now.getHours() + 24);
+    const thresholdDate = new Date();
+    thresholdDate.setDate(now.getDate() + 7);
 
-    allEvents.forEach(evt => {
+    allEvents.forEach((evt, index) => {
         // Skip invalid rows
         if (!evt || !evt.strTimestamp) return;
 
         const eventTime = new Date(evt.strTimestamp);
-        const isToday = eventTime <= tomorrow; // Treat anything in next 24 hours as "Today" for dashboard purposes
+        
+        // We removed the timestamp hack, so events accurately reflect their real-time schedule.
+
+        const isToday = eventTime <= thresholdDate; // Treat anything in next 7 days as "Today" for dashboard purposes
 
         // Calculate a random baseline odds factor based on home vs away to keep it somewhat realistic
         // (Just a visual simulation since free API lacks real odds)
@@ -219,8 +250,10 @@ function mapLiveEvents(allEvents) {
 
 // Async Data Generator pulling from TheSportsDB
 async function getLiveOddsData() {
-    // 4328 = English Premier League, 4387 = NBA, 4424 = MLB, 4391 = NFL (If in season)
-    const leagueIdsToFetch = [4328, 4387, 4424]; 
+    // 4480 = Champions League, 4481 = Europa League
+    // 4328 = EPL, 4335 = La Liga, 4332 = Serie A
+    // 4387 = NBA, 4380 = NHL, 4424 = MLB, 4391 = NFL
+    const leagueIdsToFetch = [4480, 4481, 4328, 4335, 4332, 4387, 4380, 4424, 4391];  
     
     console.log("Fetching live schedules from TheSportsDB...");
     
@@ -228,15 +261,10 @@ async function getLiveOddsData() {
     const allResults = await Promise.all(leagueIdsToFetch.map(id => fetchTheSportsDBLeague(id)));
     
     // Flatten array of arrays
-    const combinedEvents = allResults.flat();
+    let combinedEvents = allResults.flat();
     
-    console.log(`Successfully retrieved ${combinedEvents.length} upcoming REAL live events.`);
-
-    // If API fails or is empty, provide a fallback mock
-    if (combinedEvents.length === 0) {
-        console.log("No real events found (maybe API limits), returning fallback mock.");
-        return getFallbackMockData(); 
-    }
+    // Removed the SOTA PREMIUM mock injections as requested.
+    console.log(`Successfully retrieved ${combinedEvents.length} upcoming live events.`);
 
     return mapLiveEvents(combinedEvents);
 }

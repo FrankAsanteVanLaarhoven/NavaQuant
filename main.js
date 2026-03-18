@@ -12,8 +12,12 @@ function createWindow () {
     icon: path.join(__dirname, 'icon.png') // Note: requires an icon file to be perfectly native
   });
 
-  // Load the local dashboard UI natively
-  win.loadFile('index.html');
+  // Violently clear the Electron cache before loading so updates are instant
+  win.webContents.session.clearCache().then(() => {
+     win.webContents.session.clearStorageData().then(() => {
+         win.loadFile('index.html');
+     });
+  });
 }
 
 app.whenReady().then(() => {

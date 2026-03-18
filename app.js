@@ -32,9 +32,10 @@ function initWebGL() {
 
         void main() {
             vec2 st = gl_FragCoord.xy / u_resolution.xy;
-            float r = 0.04 + 0.1 * sin(u_time * 0.5 + st.x * 5.0);
-            float g = 0.06 + 0.1 * sin(u_time * 0.3 + st.y * 3.0);
-            float b = 0.12 + 0.15 * sin(u_time * 0.6 + (st.x + st.y) * 4.0);
+            float intensity = 0.03 + 0.02 * sin(u_time * 0.3 + (st.x - st.y) * 2.0) + 0.01 * cos(u_time * 0.1 + st.x * 5.0);
+            float r = 0.01;
+            float g = 0.03 + intensity * 0.4;
+            float b = 0.06 + intensity;
             gl_FragColor = vec4(r, g, b, 1.0);
         }
     `;
@@ -271,6 +272,7 @@ function createTodayCard(match) {
 
     return `
         <div class="match-card today-card">
+            <div class="poster-bg" style="background-image: url('${getPosterForSport(match.sport_title)}')"></div>
             <div class="match-header">
                 <div class="league-sport">
                     <span class="sport-tag">${match.sport_title}</span>
@@ -322,6 +324,7 @@ function createForecastCard(event) {
 
     return `
         <div class="forecast-card">
+            <div class="poster-bg" style="background-image: url('${getPosterForSport(event.sport_title)}')"></div>
             <div class="f-date">
                 <span class="f-day">${dayDate}</span>
                 <span class="f-time">${timeFormatted}</span>
@@ -342,7 +345,8 @@ function createForecastCard(event) {
 
 async function fetchOddsData() {
     try {
-        const response = await fetch('http://localhost:3000/api/odds');
+        const hostname = window.location.hostname || 'localhost';
+        const response = await fetch(`http://${hostname}:3000/api/odds`);
         if (!response.ok) {
             throw new Error(`API error! status: ${response.status}`);
         }
@@ -365,6 +369,7 @@ function createParlayCard(parlay) {
 
     return `
         <div class="forecast-card premium-card">
+            <div class="poster-bg" style="background-image: url('${getPosterForSport('Premium Parlay')}')"></div>
             <div class="parlay-header">
                 <span class="parlay-type">${parlay.type}</span>
                 <span class="parlay-total-odds">Odds: ${parlay.total_odds}x</span>
@@ -395,18 +400,49 @@ async function renderDashboard() {
     }
 
     if (todayContainer) {
-        todayContainer.innerHTML = data.today.map(createTodayCard).join('');
+        if (data.today && data.today.length > 0) {
+            todayContainer.innerHTML = data.today.map(createTodayCard).join('');
+        } else {
+            todayContainer.innerHTML = `
+                <div class="match-card today-card">
+                    <div class="poster-bg" style="background-image: url('${PREMIUM_POSTERS.soccer}')"></div>
+                    <div class="match-header">
+                        <div class="teams"><span class="team">Global Soccer Hub</span></div>
+                        <div class="match-meta"><span class="time">Awaiting Live API Events</span></div>
+                    </div>
+                </div>
+                <div class="match-card today-card">
+                    <div class="poster-bg" style="background-image: url('${PREMIUM_POSTERS.basketball}')"></div>
+                    <div class="match-header">
+                        <div class="teams"><span class="team">Global Hoops Hub</span></div>
+                        <div class="match-meta"><span class="time">Awaiting Live API Events</span></div>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     if (forecastContainer) {
-        forecastContainer.innerHTML = data.forecast.map(createForecastCard).join('');
+        if (data.forecast && data.forecast.length > 0) {
+            forecastContainer.innerHTML = data.forecast.map(createForecastCard).join('');
+        } else {
+            forecastContainer.innerHTML = '<div class="no-odds">Synchronizing Weekly Schedule...</div>';
+        }
     }
 
     if (parlaysContainer && data.parlays) {
         if (data.parlays.length > 0) {
             parlaysContainer.innerHTML = data.parlays.map(createParlayCard).join('');
         } else {
-            parlaysContainer.innerHTML = '<div class="no-odds">No High-EV Parlays detected today.</div>';
+            parlaysContainer.innerHTML = `
+                <div class="forecast-card premium-card">
+                    <div class="poster-bg" style="background-image: url('${PREMIUM_POSTERS.soccer}')"></div>
+                    <div class="parlay-header">
+                        <span class="parlay-type">Premium AI Analysis Loading</span>
+                    </div>
+                    <p class="parlay-desc">Awaiting sufficient live market data for Quantitative Edge Predictions.</p>
+                </div>
+            `;
         }
     }
 }
@@ -430,7 +466,8 @@ function initBetVerifier() {
         btn.disabled = true;
 
         try {
-            const response = await fetch('http://localhost:3000/api/verify-bet', {
+            const hostname = window.location.hostname || 'localhost';
+            const response = await fetch(`http://${hostname}:3000/api/verify-bet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ decimalOdds: odds, userProb: prob })
@@ -489,4 +526,181 @@ document.addEventListener('DOMContentLoaded', () => {
     initWebRTC();
     initBetVerifier();
     renderDashboard();
+    initEphemeralUI();
 });
+
+// --- SOTA EPHEMERAL UI ENGINE ---
+const PREMIUM_POSTERS = {
+    soccer: 'assets/hero_soccer.png',
+    basketball: 'assets/hero_basketball.png',
+    football: 'https://images.unsplash.com/photo-1611004639943-41bb878fce0a?q=80&w=800&auto=format&fit=crop',
+    hockey: 'https://images.unsplash.com/photo-1515515286202-69024f2b1d6d?q=80&w=800&auto=format&fit=crop',
+    baseball: 'https://images.unsplash.com/photo-1508344928928-7137b29de2f6?q=80&w=800&auto=format&fit=crop',
+    default: 'assets/hero_soccer.png'
+};
+
+function getPosterForSport(sportName) {
+    if (!sportName) return PREMIUM_POSTERS.default;
+    const s = sportName.toLowerCase();
+    if (s.includes('soccer') || s.includes('premier') || s.includes('liga') || s.includes('champions')) return PREMIUM_POSTERS.soccer;
+    if (s.includes('nba') || s.includes('basket')) return PREMIUM_POSTERS.basketball;
+    if (s.includes('nfl') || s.includes('football')) return PREMIUM_POSTERS.football;
+    if (s.includes('nhl') || s.includes('hockey')) return PREMIUM_POSTERS.hockey;
+    if (s.includes('mlb') || s.includes('base')) return PREMIUM_POSTERS.baseball;
+    return PREMIUM_POSTERS.default;
+}
+
+let recognition;
+let isListening = false;
+let synthesis = window.speechSynthesis;
+
+function initEphemeralUI() {
+    const orb = document.getElementById('intent-orb');
+    const input = document.getElementById('intent-input');
+    
+    // Setup Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            isListening = true;
+            orb.classList.add('listening');
+            input.placeholder = "Listening for intent...";
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            input.value = transcript;
+            processIntent(transcript);
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            stopListening();
+        };
+
+        recognition.onend = () => {
+            stopListening();
+        };
+    } else {
+        input.placeholder = "Speech unsupported. Type intent here...";
+    }
+
+    // Input events
+    orb.addEventListener('click', toggleListening);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            processIntent(input.value);
+            input.blur();
+        }
+    });
+}
+
+function speakResponse(text) {
+    if (!synthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = 0.9;
+    utterance.rate = 1.0;
+    // synthesis.speak(utterance); // Optional
+}
+
+function toggleListening() {
+    const input = document.getElementById('intent-input');
+    input.classList.toggle('active');
+    if (input.classList.contains('active')) input.focus();
+    
+    if (recognition) {
+        if (isListening) {
+            recognition.stop();
+        } else {
+            input.value = "";
+            recognition.start();
+        }
+    }
+}
+
+function stopListening() {
+    isListening = false;
+    const orb = document.getElementById('intent-orb');
+    const input = document.getElementById('intent-input');
+    orb.classList.remove('listening');
+    input.placeholder = "Type intent or tap orb to speak...";
+}
+
+function hideAllEphemeral() {
+    document.querySelectorAll('.ephemeral-active').forEach(el => {
+        el.classList.remove('ephemeral-active');
+        el.classList.add('ephemeral-hidden');
+    });
+}
+
+function showEphemeral(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.remove('ephemeral-hidden');
+        el.classList.add('ephemeral-active');
+    }
+}
+
+function processIntent(text) {
+    if (!text) return;
+    const intent = text.toLowerCase();
+    
+    hideAllEphemeral();
+    
+    let matched = false;
+
+    if (intent.includes('premium') || intent.includes('parlay') || intent.includes('ev') || intent.includes('hedge') || intent.includes('best return')) {
+        showEphemeral('premium-picks');
+        matched = true;
+    }
+    if (intent.includes('today') || intent.includes('live') || intent.includes('now') || intent.includes('currently')) {
+        showEphemeral('today-events');
+        matched = true;
+    }
+    if (intent.includes('forecast') || intent.includes('week') || intent.includes('upcoming') || intent.includes('future')) {
+        showEphemeral('weekly-forecast');
+        matched = true;
+    }
+    if (intent.includes('verify') || intent.includes('calculator') || intent.includes('custom bet') || intent.includes('math')) {
+        showEphemeral('custom-bet-verifier');
+        matched = true;
+    }
+    if (intent.includes('everything') || intent.includes('all')) {
+        showEphemeral('premium-picks');
+        showEphemeral('today-events');
+        showEphemeral('weekly-forecast');
+        showEphemeral('custom-bet-verifier');
+        matched = true;
+    }
+    
+    // SOTA Magic Element Filtering
+    if (!matched) {
+        // Fallback: Show everything and filter by elements
+        showEphemeral('today-events');
+        showEphemeral('weekly-forecast');
+        showEphemeral('premium-picks');
+        
+        const cards = document.querySelectorAll('.match-card, .forecast-card');
+        cards.forEach(card => {
+            if (card.textContent.toLowerCase().includes(intent)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    } else {
+        // Reset all displays if a main section was triggered
+        const cards = document.querySelectorAll('.match-card, .forecast-card');
+        cards.forEach(card => card.style.display = '');
+    }
+    
+    // Clear input after a short delay
+    setTimeout(() => {
+        document.getElementById('intent-input').classList.remove('active');
+    }, 2000);
+}
