@@ -1279,3 +1279,87 @@ header p {
     50% { opacity: 0.6; transform: scale(0.95); }
     100% { opacity: 1; transform: scale(1); }
 }
+
+/* =========================================
+   UTILITY BAR STYLES
+   ========================================= */
+.utility-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(11, 17, 32, 0.85);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    margin-bottom: 20px;
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.util-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.world-clock span {
+    margin-right: 15px;
+}
+
+.world-clock b {
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.currency-calc input, .currency-calc select {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+    outline: none;
+}
+
+.currency-calc input {
+    width: 65px;
+    text-align: right;
+}
+
+.currency-calc option {
+    background: #0b1120;
+}
+
+#curr-result {
+    color: #4ade80;
+    font-family: monospace;
+    font-size: 1rem;
+    margin-left: 5px;
+}
+
+.language-wrapper {
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.goog-te-gadget {
+    color: transparent !important;
+}
+
+.goog-te-gadget .goog-te-combo {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    outline: none;
+}
+

@@ -11,12 +11,41 @@
     
     <link rel="stylesheet" href="style.css?v=3">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({pageLanguage: 'en', layout: google.translate.TranslateElement.InlineLayout.SIMPLE}, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </head>
 <body>
     <!-- WebGL Background Canvas -->
     <canvas id="webgl-canvas"></canvas>
     
-    <div class="container">
+        <div class="utility-bar">
+            <div class="util-item" id="weather-widget">🌤️ Fetching Local Weather...</div>
+            <div class="util-item" id="world-clock">🌍 Synchronizing Earth...</div>
+            <div class="util-item currency-calc">
+                <span class="curr-icon">💱</span>
+                <input type="number" id="curr-input" value="100" min="1">
+                <select id="curr-from">
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                </select>
+                <span class="curr-arrow">➔</span>
+                <select id="curr-to">
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                </select>
+                <strong id="curr-result">--.--</strong>
+            </div>
+            <div class="util-item language-wrapper">
+                <div id="google_translate_element"></div>
+            </div>
+        </div>
+
         <header style="position: relative;">
             <h1>Match Day <span class="accent">Live</span></h1>
             <p>Your portal to official, legal, and high-quality football broadcasts.</p>

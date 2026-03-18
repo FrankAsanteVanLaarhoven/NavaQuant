@@ -776,3 +776,97 @@ window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
     console.log('Match Day SDK PWA was successfully installed');
 });
+
+// ==========================================
+// UTILITY BELT LOGIC
+// ==========================================
+
+// 1. World Clocks
+function updateWorldClocks() {
+    const clockEl = document.getElementById('world-clock');
+    if (!clockEl) return;
+    
+    const now = new Date();
+    const options = { hour: '2-digit', minute: '2-digit', hour12: false };
+    
+    const local = now.toLocaleTimeString([], options);
+    const london = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', ...options }).format(now);
+    const ny = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', ...options }).format(now);
+    const tokyo = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', ...options }).format(now);
+
+    clockEl.innerHTML = `
+        <span class="world-clock"><b>LOC</b> ${local}</span>
+        <span class="world-clock"><b>LON</b> ${london}</span>
+        <span class="world-clock"><b>NYC</b> ${ny}</span>
+        <span class="world-clock"><b>TYO</b> ${tokyo}</span>
+    `;
+}
+setInterval(updateWorldClocks, 1000);
+updateWorldClocks();
+
+// 2. Weather Engine
+async function fetchLocalWeather() {
+    const weatherEl = document.getElementById('weather-widget');
+    if (!weatherEl) return;
+
+    try {
+        // Defaulting to universal coords for global dashboard feel (London base)
+        let lat = 51.5074;
+        let lon = -0.1278;
+        
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`);
+        const data = await res.json();
+        const maxT = data.daily.temperature_2m_max[0];
+        const minT = data.daily.temperature_2m_min[0];
+        const rainP = data.daily.precipitation_probability_max[0];
+        
+        weatherEl.innerHTML = `🌤️ ${maxT}°C / ${minT}°C | 💧${rainP}%`;
+    } catch (e) {
+        weatherEl.innerHTML = `🌤️ Weather Unavailable`;
+    }
+}
+fetchLocalWeather();
+
+// 3. Currency Calculator
+let exchangeRates = {};
+async function fetchExchangeRates() {
+    try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const data = await res.json();
+        exchangeRates = data.rates;
+        calculateCurrency();
+    } catch(e) {
+        console.error("Exchange API failed");
+    }
+}
+
+function calculateCurrency() {
+    const inputEl = document.getElementById('curr-input');
+    const fromEl = document.getElementById('curr-from');
+    const toEl = document.getElementById('curr-to');
+    const resultEl = document.getElementById('curr-result');
+
+    if (!inputEl || !resultEl) return;
+
+    const input = parseFloat(inputEl.value);
+    const from = fromEl.value;
+    const to = toEl.value;
+
+    if (isNaN(input) || Object.keys(exchangeRates).length === 0) {
+        resultEl.innerText = '--.--';
+        return;
+    }
+
+    const amountInUSD = input / exchangeRates[from];
+    const amountInTarget = amountInUSD * exchangeRates[to];
+    
+    resultEl.innerText = amountInTarget.toFixed(2);
+}
+
+// Bind events after brief delay ensuring DOM is ready
+setTimeout(() => {
+    document.getElementById('curr-input')?.addEventListener('input', calculateCurrency);
+    document.getElementById('curr-from')?.addEventListener('change', calculateCurrency);
+    document.getElementById('curr-to')?.addEventListener('change', calculateCurrency);
+    fetchExchangeRates();
+}, 200);

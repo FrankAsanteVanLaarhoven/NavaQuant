@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "node server.js",
-    "app": "electron ."
+    "app": "electron .",
+    "build:mac": "npx @electron/packager . 'Match Day SDK' --platform=darwin --arch=x64 --icon=icon.icns --out=dist --overwrite"
   },
   "keywords": [
     "football",
@@ -20,6 +21,7 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
-    "electron": "^41.0.2"
+    "electron": "^41.0.2",
+    "electron-packager": "^17.1.2"
   }
 }
