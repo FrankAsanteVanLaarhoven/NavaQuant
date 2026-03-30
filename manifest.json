@@ -1,6 +1,6 @@
 {
-  "name": "Match Day Live - Hedge Fund Terminal",
-  "short_name": "MatchDay",
+  "name": "NavaQuant - Hedge Fund Terminal",
+  "short_name": "NavaQuant",
   "description": "Premium Sports Dashboard with Hedge Fund Betting Analytics",
   "start_url": "/index.html",
   "display": "standalone",

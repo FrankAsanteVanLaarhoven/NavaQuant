@@ -2,19 +2,19 @@ const { exec } = require('child_process');
 const path = require('path');
 const os = require('os');
 
-class MatchDaySDK {
+class NavaQuantSDK {
     /**
-     * Initializes the MatchDay SDK
+     * Initializes the NavaQuant SDK
      */
     constructor() {
         this.dashboardPath = path.join(__dirname, 'index.html');
     }
 
     /**
-     * Launches the TV Viewer (Match Day Dashboard) in the default web browser.
+     * Launches the Console (NavaQuant Dashboard) in the default web browser.
      */
     launchViewer() {
-        console.log("⚽ Initializing Match Day TV Viewer...");
+        console.log("⚽ Initializing NavaQuant Dashboard...");
         
         let command;
         // Handle different operating systems
@@ -40,7 +40,7 @@ class MatchDaySDK {
     }
 
     /**
-     * Get the absolute path to the TV Viewer HTML file
+     * Get the absolute path to the Dashboard HTML file
      * @returns {string} The path to index.html
      */
     getViewerPath() {
@@ -49,10 +49,10 @@ class MatchDaySDK {
 }
 
 // Export as an SDK module
-module.exports = MatchDaySDK;
+module.exports = NavaQuantSDK;
 
 // If the script is run directly from the command line, automatically launch it
 if (require.main === module) {
-    const sdk = new MatchDaySDK();
+    const sdk = new NavaQuantSDK();
     sdk.launchViewer();
 }

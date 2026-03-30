@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // --- FRONTEND SERVER (Port 8080) ---
-// This serves the Match Day UI and forcefully clears old browser caches
+// This serves the NavaQuant UI and forcefully clears old browser caches
 const frontendApp = express();
 frontendApp.use((req, res, next) => {
     // VIOLENTLY NUKE ANY BROWSER CACHES/SERVICE WORKERS FROM PREVIOUS PROJECTS
@@ -542,14 +542,34 @@ app.post('/api/verify-bet', (req, res) => {
     });
 });
 
-// API Route for Bet Ledger and Portfolio Sim
+// API Route for Unified Bet Ledger (Simulated + Autonomous)
 app.get('/api/ledger', async (req, res) => {
     try {
-        const ledger = await dbApi.getBetLedger();
-        res.json(ledger);
+        const [simulated, autonomous] = await Promise.all([
+            dbApi.getBetLedger(),
+            dbApi.getLedger()
+        ]);
+        
+        const mappedAutonomous = autonomous.map(a => ({
+            timestamp: a.timestamp,
+            home_team: a.home_name,
+            away_team: a.away_name,
+            decimal_odds: a.odds,
+            expected_value: a.edge,
+            strategy_tier: 'AUTONOMOUS_DAEMON',
+            closing_line_value: a.odds - 0.1,
+            stake_percent: (a.stake / 10000) * 100, // assuming BANKROLL=10000 
+            p_cal: a.true_prob,
+            sport: 'Football'
+        }));
+        
+        let unified = [...simulated, ...mappedAutonomous];
+        unified.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        res.json(unified.slice(0, 200));
     } catch (error) {
-        console.error("Ledger error:", error);
-        res.status(500).json({ error: "Failed to fetch bet ledger" });
+        console.error("Unified Ledger error:", error);
+        res.status(500).json({ error: "Failed to fetch unified bet ledger" });
     }
 });
 
@@ -719,15 +739,7 @@ app.post('/api/players/update-status', async (req, res) => {
     }
 });
 
-app.get('/api/ledger', async (req, res) => {
-    try {
-        const ledger = await dbApi.getLedger();
-        res.json(ledger);
-    } catch (error) {
-        console.error("Ledger Fetch Error:", error);
-        res.status(500).json({ error: "Failed to fetch ledger" });
-    }
-});
+
 
 app.post('/api/ledger', async (req, res) => {
     try {
@@ -830,16 +842,7 @@ app.post('/api/simulate-lineup', async (req, res) => {
     }
 });
 
-// NATIVE SQLITE LEDGER API
-app.get('/api/ledger', async (req, res) => {
-    try {
-        const ledger = await dbApi.getBetLedger();
-        res.json(ledger);
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: "Failed to fetch execution ledger" });
-    }
-});
+
 
 // REMOTE PYTHON EXECUTION TRIGGER
 app.post('/api/execute-backtest', (req, res) => {

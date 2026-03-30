@@ -389,7 +389,7 @@ function createParlayCard(parlay) {
             <div class="parlay-legs-container">
                 ${legsHtml}
             </div>
-            <button class="btn btn-bet premium-btn">Load Slip to API</button>
+            <button class="btn btn-bet premium-btn" onclick="placeParlayBet(${parlay.total_odds}, '${encodeURIComponent(parlay.type)}')">Load Slip to API</button>
         </div>
     `;
 }
@@ -961,21 +961,7 @@ function setupPortfolioSimulator() {
         modal.style.display = 'flex';
         updateSim(); // Run initial Monte Carlo simulation
         
-        const tbody = document.getElementById('ledger-body');
-        tbody.innerHTML = '<tr><td colspan="6" style="padding: 1rem; text-align: center;">Fetching Ledger...</td></tr>';
-        
-        try {
-            const hostname = window.location.hostname || 'localhost';
-            const req = await fetch(`http://${hostname}:3000/api/ledger`);
-            if (req.ok) {
-                const ledger = await req.json();
-                populateLedger(ledger);
-            } else {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding: 1rem; text-align: center; color: red;">Failed to fetch ledger.</td></tr>';
-            }
-        } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="6" style="padding: 1rem; text-align: center; color: red;">Error connecting to DB.</td></tr>';
-        }
+        // Ledger population removed. Natively integrated with global Execution Ledger.
     });
 
     closeBtn.addEventListener('click', () => {
@@ -983,60 +969,33 @@ function setupPortfolioSimulator() {
     });
 }
 
-function populateLedger(ledger) {
-    const tbody = document.getElementById('ledger-body');
-    const simBets = document.getElementById('sim-bets');
-    const simEv = document.getElementById('sim-ev');
-    const simClv = document.getElementById('sim-clv');
+// (populateLedger logic deprecated in Phase 16)
 
-    if (ledger.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding: 1rem; text-align: center; color: var(--text-secondary);">No bets recorded in SQLite ledger yet. Wait for a live event to trigger an edge.</td></tr>';
-        return;
-    }
-
-    let totalEv = 0;
-    let totalClvDiff = 0;
-    let html = '';
-
-    ledger.forEach(bet => {
-        const d = new Date(bet.timestamp);
-        const timeStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
-        
-        let tierColor = '#fff';
-        if (bet.strategy_tier === "HIGH_CONVICTION") tierColor = 'var(--success)';
-        else if (bet.strategy_tier === "SAFE_TO_PROCEED") tierColor = '#fbbf24';
-
-        const evPct = (bet.expected_value * 100).toFixed(2);
-        const clvStr = bet.closing_line_value ? bet.closing_line_value.toFixed(2) : '-';
-
-        totalEv += bet.expected_value;
-        if (bet.closing_line_value) {
-            totalClvDiff += (bet.decimal_odds - bet.closing_line_value);
+window.placeParlayBet = async function(odds, titleEnc) {
+    try {
+        const title = decodeURIComponent(titleEnc);
+        const hostname = window.location.hostname || 'localhost';
+        const res = await fetch(`http://${hostname}:3000/api/pinnacle/v2/bets/place`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                eventId: Math.floor(Math.random() * 99999), 
+                price: parseFloat(odds), 
+                stake: 50.0, 
+                uniqueRequestId: Date.now().toString() 
+            })
+        });
+        if (res.ok) {
+            alert(`Parlay Slip "${title}" executed via Pinnacle SDK Simulator!`);
+            fetchAndRenderLedger();
+        } else {
+            alert("Execution failed.");
         }
-
-        html += `
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;">
-                <td style="padding: 1rem; color: var(--text-secondary);">${timeStr}</td>
-                <td style="padding: 1rem; font-weight: 500;">
-                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${bet.sport}</div>
-                    ${bet.home_team} vs ${bet.away_team}
-                </td>
-                <td style="padding: 1rem; font-weight: 700; color: ${tierColor};">${bet.strategy_tier.replace(/_/g, ' ')}</td>
-                <td style="padding: 1rem;">
-                    <div>Obs: <strong style="color: #fbbf24;">${bet.decimal_odds.toFixed(2)}</strong></div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">CLV: ${clvStr}</div>
-                </td>
-                <td style="padding: 1rem; color: var(--success); font-weight: bold;">+${evPct}%</td>
-                <td style="padding: 1rem; font-family: monospace;">${bet.stake_percent.toFixed(2)}%</td>
-            </tr>
-        `;
-    });
-
-    tbody.innerHTML = html;
-    simBets.textContent = ledger.length;
-    simEv.textContent = `+${((totalEv / ledger.length) * 100).toFixed(2)}%`;
-    simClv.textContent = `+${(totalClvDiff / ledger.length).toFixed(3)} avg dist`;
-}
+    } catch(e) {
+        console.error("Bet API error:", e);
+        alert("Connection error executing slip.");
+    }
+};
 
 // --- SOTA EPHEMERAL UI ENGINE ---
 const PREMIUM_POSTERS = {
@@ -1273,7 +1232,7 @@ window.addEventListener('appinstalled', () => {
     
     // Clear the deferredPrompt so it can be garbage collected
     deferredPrompt = null;
-    console.log('Match Day SDK PWA was successfully installed');
+    console.log('NavaQuant PWA was successfully installed');
 });
 
 // ==========================================

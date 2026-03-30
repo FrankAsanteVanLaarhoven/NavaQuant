@@ -1,12 +1,12 @@
 {
-  "name": "match-day-sdk",
+  "name": "navaquant-sdk",
   "version": "1.0.0",
-  "description": "SDK to launch the Match Day Live TV Viewer Dashboard",
+  "description": "SDK to launch the NavaQuant Dashboard",
   "main": "main.js",
   "scripts": {
     "start": "node server.js",
     "app": "electron .",
-    "build:mac": "npx @electron/packager . 'Match Day SDK' --platform=darwin --arch=x64 --icon=icon.icns --out=dist --overwrite"
+    "build:mac": "npx @electron/packager . 'NavaQuant' --platform=darwin --arch=x64 --icon=icon.icns --out=dist --overwrite"
   },
   "keywords": [
     "football",
